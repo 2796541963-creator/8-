@@ -1,0 +1,10 @@
+# MacBERT 权重文件体积较大，不进入普通 Git 历史。
+# 如需提交权重，请改用 Git LFS 或模型托管平台。
+model/**/pytorch_model.bin
+model/**/model.safetensors
+model/**/.cache/
+
+# Python 本地缓存
+__pycache__/
+*.py[cod]
+
