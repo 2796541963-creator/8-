@@ -15,8 +15,13 @@ class Config(object):
         )
 
         self.model_save_path = "./saved_models"
-        # 预训练模型，本地有缓存则走缓存，否则从 HuggingFace 下载
         self.bert_path = "./bert-base-chinese"
+        
+        self.num_classes = {
+            "fault_type": 10,
+            "risk_level": 4,
+            "department": 9,
+        }
 
         self.max_length = 55
         self.batch_size = 32
