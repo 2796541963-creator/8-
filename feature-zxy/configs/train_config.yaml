@@ -1,0 +1,45 @@
+project:
+  name: equipment-repair-text-classification
+  seed: 42
+
+data:
+  train_path: data/processed/train.tsv
+  val_path: data/processed/val.tsv
+  test_path: data/processed/test.tsv
+  labels_path: configs/labels.json
+  text_column: text
+  label_columns:
+    - fault_category
+    - risk_level
+    - department
+
+model:
+  pretrained_model_name: hfl/chinese-macbert-base
+  pretrained_model_path: model/chinese-macbert-base
+  local_model_required: true
+  max_length: 128
+
+training:
+  task_type: macbert_multitask_classification
+  epochs: 3
+  batch_size: 16
+  gradient_accumulation_steps: 1
+  learning_rate: 0.00002
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  dropout: 0.1
+  early_stopping_patience: 2
+
+loss:
+  fault_category_weight: 1.0
+  risk_level_weight: 1.5
+  department_weight: 1.0
+
+evaluation:
+  main_metric: macro_f1
+  monitor_metric: risk_level_p0_p1_recall
+  save_best_model: true
+
+output:
+  checkpoint_dir: outputs/macbert_multitask
+  log_dir: outputs/logs
