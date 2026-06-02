@@ -76,7 +76,7 @@ app/
 
 ### 1.6 `configs/`
 
-`configs/` 建议用于保存训练配置、标签配置、接口配置和模型路径配置，当前目录尚未创建。
+`configs/` 用于保存训练配置、标签配置、接口配置和模型路径配置。当前已创建 `labels.json` 和 `train_config.yaml`。
 
 建议结构：
 
@@ -87,7 +87,7 @@ configs/
   api_config.yaml
 ```
 
-`labels.json` 保存故障大类、风险等级、推荐部门的 label2id 和 id2label。`train_config.yaml` 保存模型名、最大长度、学习率、batch size、epoch、loss 权重等训练参数。
+`labels.json` 保存故障大类、风险等级、推荐部门的 label2id 和 id2label。`train_config.yaml` 保存模型名、最大长度、学习率、batch size、epoch、loss 权重等训练参数。`api_config.yaml` 后续用于 Flask 服务和小程序接口阈值配置。
 
 ### 1.7 `run.py`
 
@@ -179,6 +179,7 @@ L = L_fault + 1.5 * L_risk + L_department
 scripts/dataset_eda.py
 scripts/dataset_clean.py
 scripts/dataset_split.py
+scripts/build_labels.py
 data/processed/train.tsv
 data/processed/val.tsv
 data/processed/test.tsv
@@ -303,6 +304,9 @@ data/processed/cleaned_dataset.tsv
 请尽快安排机械维修
 请尽快安排电气维修
 请尽快安排自动化工程师
+请安排机械维修
+请安排电气维修
+请安排自动化工程师
 请安全/EHS确认
 请质量/工艺/设备确认
 ```
@@ -334,7 +338,38 @@ valid: 10%
 test: 10%
 ```
 
-切分方式建议按 `fault_category + risk_level` 组合字段进行分层，避免某些风险等级在验证集或测试集中分布过少。
+切分方式优先按 `fault_category + risk_level + department` 组合字段进行分层。如果组合过细导致某些类别样本不足，再降级到 `fault_category + risk_level` 或 `risk_level`。
+
+### 4.3.1 `build_labels.py`
+
+用途：从 `train.tsv`、`val.tsv`、`test.tsv` 自动生成标签映射文件。
+
+输入：
+
+```text
+data/processed/train.tsv
+data/processed/val.tsv
+data/processed/test.tsv
+```
+
+输出：
+
+```text
+configs/labels.json
+```
+
+`labels.json` 是训练、评估、Flask 推理和小程序接口之间的共同字典。它的作用类似“车间里的工位编号表”：模型内部使用整数 ID，界面和业务侧使用中文标签，两者必须稳定互通。
+
+风险等级使用固定业务顺序：
+
+```text
+P0 -> 0
+P1 -> 1
+P2 -> 2
+P3 -> 3
+```
+
+其他标签按稳定字典序生成，保证每次重新运行脚本时结果可复现。
 
 ### 4.4 `train_baseline.py`
 
@@ -537,6 +572,7 @@ POST /api/v1/feedback
 python scripts/dataset_eda.py --input data/manufacturing_repair_text_dataset_cn.txt
 python scripts/dataset_clean.py --input data/manufacturing_repair_text_dataset_cn.txt --output data/processed/cleaned_dataset.tsv
 python scripts/dataset_split.py --input data/processed/cleaned_dataset.tsv --output-dir data/processed
+python scripts/build_labels.py --input-dir data/processed --output configs/labels.json
 ```
 
 第二阶段：模型层
@@ -563,7 +599,89 @@ http://127.0.0.1:5000
 
 小程序只需要对接 `/api/v1/predict`、`/api/v1/labels` 和 `/api/v1/feedback` 三个接口即可完成基础闭环。
 
-## 7. 开发注意事项
+## 7. 一台 RTX 4080 的微调方案
+
+当前任务本质是“判别式文本分类”，不是“生成式问答”。输入是一条报修文本，输出是三个固定标签：
+
+```text
+fault_category
+risk_level
+department
+```
+
+因此主线方案建议使用 `MacBERT Encoder + 三个分类头`，而不是优先使用 LLaMA-Factory 微调大语言模型。LLaMA-Factory 更适合 LLaMA、Qwen、ChatGLM 等生成式大模型的 SFT、LoRA、QLoRA 和对话指令微调；它可以作为后续“大模型精筛/解释生成”的工具，但不适合作为当前固定标签分类任务的第一选择。
+
+推荐主线：
+
+```text
+cleaned_dataset.tsv
+  -> train.tsv / val.tsv / test.tsv
+  -> labels.json
+  -> TF-IDF baseline
+  -> MacBERT 多任务分类微调
+  -> evaluate_model.py
+  -> Flask 推理服务
+```
+
+在单张 RTX 4080 上，MacBERT-base 规模很合适。它约 12 层 Transformer、hidden size 768、12 个注意力头，显存压力远低于 7B 级大模型。当前文本长度最大约 62 个字符，`max_length: 128` 已经足够，没必要拉到 256 或 512。
+
+建议训练参数：
+
+```yaml
+max_length: 128
+batch_size: 16
+gradient_accumulation_steps: 1
+learning_rate: 2.0e-5
+epochs: 3
+warmup_ratio: 0.1
+weight_decay: 0.01
+dropout: 0.1
+fp16: true
+```
+
+如果显存还有余量，可以把 `batch_size` 提到 32；如果训练波动明显，优先保持 batch size 16，把 `epochs` 调到 4 或 5，并使用 early stopping。
+
+多任务模型结构：
+
+```text
+MacBERT
+  -> [CLS]
+    -> fault_category_head: 10 类
+    -> risk_level_head: 4 类
+    -> department_head: 10 类
+```
+
+损失函数建议：
+
+```text
+L = 1.0 * L_fault + 1.5 * L_risk + 1.0 * L_department
+```
+
+这里提高 `risk_level` 权重，是因为 P0/P1 漏判在业务上代价更高。模型评估时也不能只看 Accuracy，应重点看：
+
+```text
+fault_category Macro-F1
+risk_level Macro-F1
+department Macro-F1
+P0 Recall
+P1 Recall
+P0/P1 Combined Recall
+三任务完全匹配率
+```
+
+LLaMA-Factory 的建议位置：
+
+```text
+不作为第一阶段主分类器
+可作为第二阶段精筛器
+可用于低置信度样本解释
+可用于生成维修建议文本
+可用于人工复核辅助
+```
+
+如果后续要使用 LLaMA-Factory，建议选择 Qwen2.5/Qwen3 这类中文能力较好的 1.5B、3B 或 7B 模型，用 LoRA/QLoRA 做指令微调。单张 RTX 4080 更适合 1.5B/3B 全流程微调，7B 建议 QLoRA，且输出应约束为 JSON 标签，避免生成式模型自由发挥。
+
+## 8. 开发注意事项
 
 1. 中文文件统一使用 UTF-8 编码。
 2. 不要直接修改原始数据文件，清洗结果写入 `data/processed/`。
