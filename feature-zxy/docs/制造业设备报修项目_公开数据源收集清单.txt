@@ -1,0 +1,326 @@
+# 安全声明：本文档仅整理公开数据来源，不包含高危命令、跨目录访问、后台运行、上传下载或系统修改内容
+
+制造业设备报修文本故障分类与停机风险预警：公开数据源收集清单
+生成日期：2026-06-01
+
+一、结论先行
+
+1. 公开互联网中很难直接获得“十几万条真实中文制造业设备报修工单”。
+   原因是制造业报修工单通常来自企业 CMMS、EAM、MES、SCADA、PLC 报警系统，包含设备资产、产线、故障记录、维修人、停机时长和备件信息，公开发布较少。
+
+2. 可行的数据建设路线不是“凭空生成数据”，而是：
+   真实维护工单文本 + 工业故障事实数据 + 设备手册/报警码 + 受控改写增强 + 人工抽检。
+
+3. 十几万条训练数据可以通过以下组合达到：
+   - 工业维护合成文本数据：100 万级维护工单，可作为训练主语料。
+   - 真实公开设施/资产维护工单：千万级/万级记录，可学习工单文本风格、状态、优先级、工单类型。
+   - 真实工业预测性维护数据：万级到 GB 级，可提供故障事实、风险标签、停机/失效标签。
+   - 设备报警码、维修手册、公开维修案例：用于构造专业故障表达和标签规则。
+
+二、数据源分层说明
+
+A 类：直接包含工单文本或维护日志的数据源
+这类数据最接近文本分类项目，可用于训练文本表示、分类标签、工单状态、维修动作识别。
+
+1. Industrial Maintenance Synthetic Dataset
+   地址：https://www.kaggle.com/datasets/jvachier/industrial-maintenance-synthetic-dataset
+   类型：工业维护合成数据，包含文本字段。
+   规模：官方说明包含 1M sensor tag records 和 1M maintenance work orders。
+   覆盖设备：泵、压缩机、换热器、反应器、发酵罐、燃气轮机等 37 类工业设备。
+   许可：Apache 2.0。
+   用法：
+   - 作为本项目大规模训练语料主来源。
+   - 可抽取 maintenance work orders 中的文本字段，映射到故障类型、工单类型、设备类型、风险等级。
+   - 适合训练 BERT/FastText/蒸馏 Student 模型。
+   注意：这是高质量合成数据，不是真实工厂私有工单；简历和答辩中必须如实说明。
+
+2. Maintenance Work Orders Dataset
+   地址：https://www.kaggle.com/datasets/tinhban/maintenance-work-orders-dataset
+   类型：维护工单 CSV。
+   规模：约 2.79 MB，5 个字段。
+   用法：
+   - 可作为小规模工单字段样例。
+   - 用于观察工单文本结构、字段命名、维修描述格式。
+   注意：页面描述较少，下载后需要检查字段质量、许可和是否含真实文本。
+
+3. MaintNet / NLP Tools for Predictive Maintenance Records
+   论文页：https://aclanthology.org/2020.aacl-demo.5/
+   arXiv：https://arxiv.org/abs/2005.12443
+   PMX 数据索引：https://github.com/autonlab/pmx_data
+   类型：预测性维护语言资源，包含航空、汽车、设施维护等领域的维护记录/日志资源。
+   用法：
+   - 用于学习维护日志中的技术缩写、非标准拼写、短文本表达。
+   - 可作为维护文本预训练、聚类、相似工单检索的数据来源。
+   - 对制造业报修文本分类有迁移价值。
+
+4. NYC AMPS Work Orders
+   地址：https://catalog.data.gov/dataset/asset-management-parks-system-amps-work-orders
+   CSV 下载：https://data.cityofnewyork.us/api/views/8sdw-8vja/rows.csv?accessType=DOWNLOAD
+   类型：纽约市公园资产管理系统工单。
+   字段：EVT_DESC、EVT_TYPE、EVT_PRIORITY、EVT_OBJECT、EVT_JOBTYPE 等。
+   用法：
+   - 真实公开工单，包含 work order description、priority、job type 等字段。
+   - 可用于训练工单类型分类、优先级分类、维修任务描述识别。
+   - 不是制造业，但属于真实资产维护工单，适合做文本风格底座。
+
+5. NYC Street Sign Work Orders
+   地址：https://data.cityofnewyork.us/Transportation/Street-Sign-Work-Orders/qt6m-xctn
+   API：https://data.cityofnewyork.us/resource/qt6m-xctn.json
+   CSV：https://data.cityofnewyork.us/api/views/qt6m-xctn/rows.csv?accessType=DOWNLOAD
+   类型：纽约市街道标识工单。
+   已校验规模：通过 Socrata count 接口查询约 15,071,624 条记录。
+   字段：order_number、record_type、order_type、borough、sign_description、sign_location、order_completed_on_date 等。
+   用法：
+   - 真实大规模工单数据，可用于工单类型分类、记录类型分类、任务状态建模。
+   - 可用 sign_description、order_type、record_type 作为文本和标签。
+   注意：不是制造业设备，但数据量大，适合做工单文本处理、清洗、字段工程练习。
+
+6. NYC Street Name Signs Work Orders Historical
+   地址：https://data.cityofnewyork.us/Transportation/Street-Name-Signs-Work-Orders-Historical-/guiy-frxt
+   API：https://data.cityofnewyork.us/resource/guiy-frxt.json
+   已校验规模：约 5,671 条。
+   用法：可作为街道标识历史工单补充数据。
+
+7. City of Austin Street Sign Work Orders
+   地址：https://catalog.data.gov/dataset/street-sign-work-orders
+   数据页：https://data.austintexas.gov/d/ivss-na93
+   API：https://data.austintexas.gov/resource/ivss-na93.json
+   CSV：https://data.austintexas.gov/api/views/ivss-na93/rows.csv?accessType=DOWNLOAD
+   已校验规模：约 54,832 条记录。
+   类型：Austin 市街牌安装与维护工单。
+   字段：Work Order ID、Work Order Status、Work Area、Location Name、Requester 等。
+   用法：
+   - 用于工单状态分类、工作区域分类、请求来源分类。
+   - 可训练通用工单文本处理流程。
+
+8. Louisville Metro KY PM Workorders
+   开放工单：https://catalog.data.gov/dataset/louisville-metro-ky-pm-workorders-open
+   数据页：https://louisville-metro-opendata-lojic.hub.arcgis.com/datasets/LOJIC::louisville-metro-ky-pm-workorders-open
+   类型：物业维护工单。
+   字段：RECORD_ID、RECORD_STATUS、RECORD_TYPE、WORK_DESCRIPTION、DATE_OPENED、ASSIGNED_STAFF 等。
+   用法：
+   - WORK_DESCRIPTION 是真实工单描述字段。
+   - 可用于训练“报修描述 -> 工单类型/状态/处理人”模型。
+
+9. NYC Work Order Management Module
+   地址：https://catalog.data.gov/dataset/work-order-management-module
+   类型：与 CSR complaints 关联的工作订单。
+   用法：
+   - 可用于公共服务工单文本分类。
+   - 可迁移到企业设备报修场景的工单分派逻辑。
+
+10. WSSC Completed Service Alert Work Orders
+   检索页：https://catalog.data.gov/?q=work+orders
+   类型：供水服务告警工单。
+   用法：
+   - 水务、泵站、管网类维护记录，与工业公辅系统有一定相似性。
+   - 可用于“服务告警 -> 工单类型/区域/状态”训练。
+
+B 类：真实工业预测性维护/故障诊断数据，可转成报修文本
+这类数据通常是传感器、时间序列、报警、失效标签，不一定有自然语言文本。它们适合作为“真实故障事实来源”，再通过模板化和受控改写转成报修文本。
+
+11. UCI AI4I 2020 Predictive Maintenance Dataset
+   地址：https://archive.ics.uci.edu/dataset/601/ai4i+2020+predictive+maintenance+dataset
+   规模：10,000 条。
+   字段：air temperature、process temperature、rotational speed、torque、tool wear、machine failure、TWF、HDF、PWF、OSF、RNF。
+   许可：CC BY 4.0。
+   用法：
+   - 可把 HDF 转为“热故障/散热异常”文本。
+   - 可把 TWF 转为“刀具磨损/耗材问题”文本。
+   - 可把 PWF 转为“功率异常/电气或驱动风险”文本。
+   - 可把 OSF 转为“过载/机械过应力”文本。
+
+12. NASA PCoE Data Set Repository
+   地址：https://www.nasa.gov/intelligent-systems-division/discovery-and-systems-health/pcoe/pcoe-data-set-repository/
+   覆盖数据：
+   - Milling Data Set
+   - Bearing Data Set
+   - Battery Data Set
+   - Turbofan Engine Degradation Simulation
+   - IGBT Accelerated Aging
+   - FEMTO Bearing
+   - MOSFET Thermal Overstress
+   - CNC Milling Machine
+   用法：
+   - 可构造轴承磨损、刀具磨损、电池退化、功率器件过热、CNC 刀具寿命等故障文本。
+   - 可用于停机风险等级和剩余寿命相关标签。
+
+13. PHM Society Data Repository
+   地址：https://data.phmsociety.org/
+   类型：PHM 竞赛和工业故障诊断数据仓库。
+   用法：
+   - 查找 CNC、轴承、风机、航空发动机、工艺过程等故障诊断数据。
+   - 可作为工业故障标签和风险预警事实数据源。
+
+14. MetroPT Benchmark Dataset
+   地址：https://zenodo.org/records/6854240
+   规模：1.6 GB CSV。
+   来源：Porto 地铁空气压缩机系统预测性维护项目。
+   字段：压力、温度、电流、控制信号、离散信号、GPS 等。
+   许可：CC BY 4.0。
+   用法：
+   - 可构造空压机压力异常、温度异常、电流异常、停机风险等报修文本。
+   - 适合本项目中的“公辅设备/空压系统”场景。
+
+15. SCANIA Component X Dataset
+   地址：https://researchdata.se/en/catalogue/dataset/2024-34/1
+   规模：10 个文件，总约 1.54 GiB。
+   类型：真实卡车发动机部件多变量时间序列，包含 operational data、repair records、specifications。
+   许可：CC BY 4.0。
+   用法：
+   - 真实工业公司数据，适合支撑“真实预测性维护数据来源”的可信度。
+   - 可用于构造发动机部件故障、维修记录、时间到事件、异常检测相关文本。
+
+16. APS Failure at Scania Trucks
+   地址：https://archive.ics.uci.edu/dataset/421/aps+failure+at+scania+trucks
+   规模：训练集 60,000 条，测试集 16,000 条，共 76,000 条。
+   类型：真实重型卡车空气压力系统故障分类。
+   用法：
+   - 可构造空气压力系统故障、制动/换挡气压异常、漏气、压力不足等文本。
+   - 适合做“公辅/气动系统/压力异常”类别。
+
+17. MIMII Dataset
+   地址：https://zenodo.org/records/3384388
+   类型：工业机器异常声音数据。
+   覆盖设备：风扇、泵、阀门、滑轨等。
+   用法：
+   - 可把音频异常标签转为巡检文本，如“风机异响”“泵运行声音异常”“阀门动作异常”。
+   - 适合构造机械异响、泵阀异常、滑轨磨损类文本。
+
+18. Case Western Reserve University Bearing Data Center
+   首页：https://engineering.case.edu/bearingdatacenter
+   下载页：https://engineering.case.edu/bearingdatacenter/download-data-file
+   类型：轴承正常/故障振动数据。
+   故障类型：内圈、外圈、滚动体故障，不同故障尺寸和负载。
+   用法：
+   - 可构造“电机轴承异响/振动偏高/内圈损伤/外圈损伤”等文本。
+   - 适合机械故障、轴承故障细分类。
+
+19. XJTU-SY Bearing Datasets
+   地址：https://biaowang.tech/xjtu-sy-bearing-datasets/
+   类型：15 个滚动轴承全寿命退化数据。
+   采样：25.6 kHz，每分钟记录一次。
+   故障：内圈磨损、保持架断裂、外圈磨损、外圈断裂等。
+   用法：
+   - 可构造“轴承退化 -> 高风险停机”的文本。
+   - 适合 RUL、停机风险、机械部件退化建模。
+
+20. UCI Condition Monitoring of Hydraulic Systems
+   地址：https://archive.ics.uci.edu/dataset/447/condition+monitoring+of+hydraulic+systems
+   类型：液压系统状态监测数据。
+   用法：
+   - 可构造液压泵、阀、冷却效率、蓄能器、油液状态异常文本。
+   - 适合“液压故障/压力异常/冷却异常”类别。
+
+21. Microsoft Azure Predictive Maintenance Dataset
+   Kaggle 地址：https://www.kaggle.com/datasets/arnabbiswas1/microsoft-azure-predictive-maintenance
+   GitHub/资料索引：https://github.com/kokikwbt/predictive-maintenance
+   类型：机器、遥测、错误、维护、失效记录。
+   用法：
+   - 可将 error、failure、maintenance 表拼接成“设备报修文本 + 故障标签”。
+   - 适合训练故障类型和预测性维护任务。
+
+22. kokikwbt/predictive-maintenance 数据集索引
+   地址：https://github.com/kokikwbt/predictive-maintenance
+   类型：预测性维护数据集索引和加载工具。
+   覆盖：ALPI、CMAPSS、HydSys、MAPM、UFD 等。
+   用法：
+   - 快速查找预测性维护公开数据集。
+   - 适合扩展数据渠道。
+
+23. autonlab/pmx_data 数据集索引
+   地址：https://github.com/autonlab/pmx_data
+   类型：预测性维护数据和脚本索引。
+   覆盖：maintnet、CNC Mill Tool Wear、Diesel Engine Faults、Hydraulic Sensor System、Pump Sensor、Robot Execution Failures、Scania APS、Turbofan 等。
+   用法：
+   - 可作为项目数据源总索引。
+   - 适合从不同设备类型补充故障事实。
+
+C 类：研究论文和方法论资料
+这类资料不一定提供可直接下载的数据，但能支撑项目背景、选题依据、方法设计和面试论证。
+
+24. NIST - Discovering Critical KPI Factors from Natural Language in Maintenance Work Orders
+   地址：https://www.nist.gov/publications/discovering-critical-kpi-factors-natural-language-maintenance-work-orders
+   价值：
+   - 证明维护工单自然语言中包含关键 KPI 影响因素。
+   - 支撑“从工单文本中挖掘设备、动作、环境、停机时间、成本”等项目立意。
+
+25. Technical Language Processing for PHM: applying text similarity and topic modeling to maintenance work orders
+   地址：https://link.springer.com/article/10.1007/s10845-024-02323-4
+   价值：
+   - 明确指出维护工单文本是 PHM 中重要但未充分利用的数据。
+   - 提供文本相似度、BERT、主题建模、维护动作推荐等方向。
+
+26. Automated analysis and assignment of maintenance work orders using NLP
+   地址：https://www.sciencedirect.com/science/article/pii/S0926580524002371
+   价值：
+   - 研究维护工单自动分派，和本项目“推荐处理部门”高度相关。
+   - 可作为项目实施依据。
+
+27. Combining NLP and multidimensional classifiers to predict and correct CMMS metadata
+   地址：https://www.sciencedirect.com/science/article/pii/S0166361522002263
+   价值：
+   - 使用 NLP 预测和纠正 CMMS 元数据、故障代码。
+   - 支撑本项目的多任务分类、多标签分类设计。
+
+28. Natural Language Processing Model for Managing Maintenance Requests in Buildings
+   地址：https://www.mdpi.com/2075-5309/10/9/160
+   价值：
+   - 说明设施维护请求可以通过 NLP 分类。
+   - 可作为非制造业工单迁移的论证材料。
+
+29. Text-mining building maintenance work orders for component fault frequency
+   地址：https://publications-cnrc.canada.ca/eng/view/object/?id=7c420300-9790-4255-9b1b-bcefb642f8e8
+   价值：
+   - 说明工单文本可用于统计部件故障频率。
+   - 支撑“故障部位识别”和“高频故障分析”。
+
+30. Generating Semantic Matches Between Maintenance Work Orders for Diagnostic Decision Support
+   地址：https://papers.phmsociety.org/index.php/phmconf/article/view/3241
+   价值：
+   - 使用 BERT/SBERT 做维护工单语义匹配。
+   - 支撑本项目中的“相似历史工单召回”。
+
+31. Labelling of Annotated Condition Monitoring Data Through Technical Language Processing
+   地址：https://papers.phmsociety.org/index.php/phmconf/article/view/3507
+   价值：
+   - 研究如何利用故障注释、维护工单和技术语言处理辅助工业故障诊断。
+   - 支撑“小样本 + 文本监督 + 聚类”的数据不足解决策略。
+
+32. Adapting natural language processing for technical text
+   地址：https://pmc.ncbi.nlm.nih.gov/articles/PMC10091306/
+   价值：
+   - 说明技术文本包含缩写、非标准表达、专业术语，需要领域化 NLP。
+   - 支撑“不能直接套通用文本分类，需要工业词表和数据清洗”的项目观点。
+
+三、推荐的数据组合方案
+
+方案一：偏简历工程落地，推荐采用
+
+1. Industrial Maintenance Synthetic Dataset：抽取 10 万到 15 万条维护工单文本作为主训练集。
+2. NYC AMPS、Austin Street Sign、Louisville PM Workorders：抽取真实维护工单文本，用作文本风格补充、预训练或验证清洗流程。
+3. AI4I、NASA、MetroPT、Scania APS、MIMII、CWRU、XJTU-SY：构造真实故障事实模板。
+4. 设备手册、报警码手册、维修案例：补充 PLC、变频器、CNC、空压机、机器人等专业术语。
+5. LLM 只做受控改写，不负责凭空生成标签。
+
+方案二：偏严谨论文/答辩
+
+1. 训练集：
+   - 合成工业维护文本 70%。
+   - 结构化工业故障转文本 20%。
+   - 公开真实工单文本迁移样本 10%。
+
+2. 验证集：
+   - 从各数据源按设备类型、故障类型分层抽样。
+   - 人工检查标签一致性。
+
+3. 测试集：
+   - 严格使用人工审核样本。
+   - 不使用 LLM 扩写样本作为唯一测试集。
+
+四、面试时回答“数据从哪来”
+
+推荐回答：
+
+这个项目没有伪装成某工厂私有数据。真实制造业报修工单通常在企业 CMMS/EAM/MES 内部，公开互联网很难直接获得十几万条中文数据。因此我采用了公开数据融合方案：用 Kaggle 的 Industrial Maintenance Synthetic Dataset 提供 100 万级工业维护工单作为文本训练主语料；用 NYC AMPS、Austin Street Sign、Louisville PM Workorders 等真实公开工单学习工单描述和状态字段；再用 UCI AI4I、NASA PCoE、PHM Society、MetroPT、Scania、CWRU、XJTU-SY 等真实工业故障数据提供故障事实和风险标签。最后通过规则模板和受控改写把结构化故障事实转成报修文本，并做人工抽检，保证标签不由大模型凭空生成。
+
