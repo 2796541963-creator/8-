@@ -6,6 +6,7 @@ from bert_model import BertClassifier
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score, recall_score, f1_score
 import warnings
+import datetime
 
 warnings.filterwarnings("ignore")
 
@@ -39,6 +40,11 @@ def model2train():
             total_loss += loss.item()
         avg_loss = total_loss / len(train_loader)
         print(f"Epoch {epoch + 1}/{config.num_epochs}, Loss: {avg_loss:.4f}")
+
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    torch.save(
+        model.state_dict(), config.model_save_path + f"bert_classifier_{timestamp}.pth"
+    )
 
 
 def model2dev():
