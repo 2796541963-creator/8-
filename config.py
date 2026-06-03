@@ -16,14 +16,16 @@ class Config(object):
 
         self.model_save_path = "./saved_models"
         self.bert_path = "./bert-base-chinese"
-        
+
         self.num_classes = {
             "fault_type": 10,
             "risk_level": 4,
             "department": 9,
         }
 
-        self.max_length = 55
-        self.batch_size = 32
-        self.learning_rate = 2e-5
+        self.label2id_path = self.data_path + "/label2id.json"
+
+        self.max_length = 113
+        self.batch_size = 64
+        self.learning_rate = 5e-5
         self.num_epochs = 2

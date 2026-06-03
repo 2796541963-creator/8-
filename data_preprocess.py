@@ -6,7 +6,10 @@ from config import Config
 
 config = Config()
 
+label2id = eval(open(config.label2id_path, "r", encoding="utf-8").read())
+
 tokenizer = BertTokenizer.from_pretrained(config.bert_path)
+
 
 # 读取原始数据
 def read_raw_data(data_path):
@@ -20,7 +23,7 @@ def read_raw_data(data_path):
             if len(parts) != 4:
                 continue
             text = parts[0]
-            labels = [int(x) for x in parts[1:]]
+            labels = [int(label2id[x]) for i, x in enumerate(parts[1:])]
             data.append((text, labels))
     return data
 
