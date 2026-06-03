@@ -1,5 +1,4 @@
 import torch
-import os
 
 
 class Config(object):
@@ -10,9 +9,7 @@ class Config(object):
         self.test_path = self.data_path + "/test.txt"
         self.dev_path = self.data_path + "/dev.txt"
         self.label2id_path = self.data_path + "/label2id.json"
-        self.orig_data_path = (
-            self.data_path + "/manufacturing_repair_text_dataset_cn.txt"
-        )
+        self.orig_data_path = self.data_path + "/manufacturing_repair_text_dataset_cn.txt"
 
         self.model_save_path = "./saved_models"
         self.bert_path = "./bert-base-chinese"
@@ -20,7 +17,7 @@ class Config(object):
         self.num_classes = {
             "fault_type": 10,
             "risk_level": 4,
-            "department": 9,
+            "department": 10,
         }
 
         self.label2id_path = self.data_path + "/label2id.json"

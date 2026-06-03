@@ -1,14 +1,36 @@
+import pandas as pd
 import torch
 from torch.utils.data import Dataset, DataLoader
 from transformers import BertTokenizer
+from sklearn.model_selection import train_test_split
 
 from config import Config
 
 config = Config()
 
-label2id = eval(open(config.label2id_path, "r", encoding="utf-8").read())
+label2id_dict = eval(open(config.label2id_path, "r", encoding="utf-8").read())
+label2id_list = [value for key, value in label2id_dict.items()]
 
 tokenizer = BertTokenizer.from_pretrained(config.bert_path)
+
+
+def org_data_preprocess():
+    data = pd.read_csv(
+        config.orig_data_path,
+        sep="\t",
+        header=None,
+        names=["text", "fault_type", "risk_level", "department"],
+    )
+    data["fault_type"] = data["fault_type"].map(label2id_dict["fault_type"])
+    data["risk_level"] = data["risk_level"].map(label2id_dict["risk_level"])
+    data["department"] = data["department"].map(label2id_dict["department"])
+
+    train_data, test_data = train_test_split(data, test_size=0.2, random_state=24)
+    _, dev_data = train_test_split(train_data, test_size=0.1, random_state=24)
+
+    train_data.to_csv(config.train_path, sep="\t", index=False, header=False)
+    test_data.to_csv(config.test_path, sep="\t", index=False, header=False)
+    dev_data.to_csv(config.dev_path, sep="\t", index=False, header=False)
 
 
 # 读取原始数据
@@ -20,10 +42,8 @@ def read_raw_data(data_path):
             if not line:
                 continue
             parts = line.split("\t")
-            if len(parts) != 4:
-                continue
             text = parts[0]
-            labels = [int(label2id[x]) for i, x in enumerate(parts[1:])]
+            labels = [int(label) for label in parts[1:]]
             data.append((text, labels))
     return data
 

@@ -25,10 +25,12 @@ class BertClassifier(nn.Module):
         )
 
     def forward(self, input_ids, attention_mask):
-        _, pooled_output = self.bert(input_ids=input_ids, attention_mask=attention_mask)
-        pooled_output = self.dropout(pooled_output)
-        return [fc(pooled_output) for fc in self.fc]
-    
+        outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask)
+        pooler_output = outputs.pooler_output
+        pooler_output = self.dropout(pooler_output)
+        return [fc(pooler_output) for fc in self.fc]
+
+
 if __name__ == "__main__":
     model = BertClassifier()
     print(model)
