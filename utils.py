@@ -8,7 +8,7 @@ import numpy as np
 
 config = Config()
 
-# 处理原始数据，生成标签文档，返回带列名基础处理数据
+# 处理原始数据，生成标签文档，返回带列名基础处理数据， 故障大类-->fault：停机风险等级-->risk_grad，推荐处理部门-->department
 def load_raw_data():
     data = []
     fault_set = set()
@@ -83,7 +83,7 @@ def dataset():
     data['fault'] = data['fault'].map(fault_to_id)
     data['risk_grad'] = data['risk_grad'].map(risk_grad_to_id)
     data['department'] = data['department'].map(department_to_id)
-    print(data.head())
+    # print(data.head())
     return data
 # 完成bert的特征编码
 def collate_fn(batch):
@@ -107,7 +107,7 @@ def collate_fn(batch):
     department = torch.tensor(department,dtype=torch.long)
     return input_ids,attention_mask,fault,risk_grad,department
 
-# 测试集，训练集，验证集拆分
+# 测试集，训练集，验证集，返回train_dataloader, val_dataloader, test_dataloader
 def dataloader():
     np.random.seed(42)
     df= dataset()
