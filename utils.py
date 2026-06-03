@@ -1,14 +1,14 @@
 import torch
 from torch.utils.data import DataLoader
 from config import Config
-import json
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import numpy as np
 
 config = Config()
 
-# 处理原始数据，生成标签文档，返回基础处理数据
+# 处理原始数据，生成标签文档，返回带列名基础处理数据
 def load_raw_data():
     data = []
     fault_set = set()
