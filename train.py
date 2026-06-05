@@ -43,7 +43,7 @@ def model2train():
 
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     torch.save(
-        model.state_dict(), config.model_save_path + f"bert_classifier_{timestamp}.pth"
+        model.state_dict(), config.model_save_path + f"/bert_classifier_{timestamp}.pth"
     )
 
 
