@@ -34,7 +34,9 @@ def load_raw_data():
     id_to_risk_grad  = {idx:name for idx,name in enumerate(risk_grad_list)}
     department_list = sorted(list(department_set))
     id_to_department  = {idx:name for idx,name in enumerate(department_list)}
-
+    fault_num = len(fault_list)
+    risk_grad_num = len(risk_grad_list)
+    department_num = len(department_list)
     with open(config.fault_class_path,'w',encoding='utf-8') as f:
         for idx,name in id_to_fault.items():
             f.write(f"{idx}\t{name}\n")
@@ -44,7 +46,7 @@ def load_raw_data():
     with open(config.department_class_path,'w',encoding='utf-8') as f:
         for idx,name in id_to_department.items():
             f.write(f"{idx}\t{name}\n")
-    return data
+    return data,fault_num,risk_grad_num,department_num
 # 进行id到标签，标签到id的映射
 def id2class():
     fault_to_id ={}
@@ -77,7 +79,7 @@ def id2class():
     return fault_to_id,id_to_fault,risk_grad_to_id,id_to_risk_grad,department_to_id,id_to_department
 # 将标签映射为0.1.2....的数字
 def dataset():
-    data = load_raw_data()
+    data, _, _, _ = load_raw_data()
     fault_to_id, id_to_fault, risk_grad_to_id, id_to_risk_grad, department_to_id, id_to_department= id2class()
     data = pd.DataFrame(data,columns=['text','fault','risk_grad','department'])
     data['fault'] = data['fault'].map(fault_to_id)
@@ -93,7 +95,7 @@ def collate_fn(batch):
     department = [item[3] for item in batch]
     text_tokens = config.tokenizer(
         texts,
-        padding=True,
+        padding="max_length",
         truncation=True,
         max_length=config.pad_size
     )
